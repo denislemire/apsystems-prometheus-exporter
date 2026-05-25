@@ -28,8 +28,10 @@ type batchPowerData struct {
 }
 
 type summaryData struct {
-	Today string `json:"today"`
-	Month string `json:"month"`
+	Today    string `json:"today"`
+	Month    string `json:"month"`
+	Year     string `json:"year"`
+	Lifetime string `json:"lifetime"`
 }
 
 type detailsData struct {
@@ -44,9 +46,11 @@ type Exporter struct {
 
 	panelEnergy *prometheus.GaugeVec
 	panelPower  *prometheus.GaugeVec
-	systemToday *prometheus.GaugeVec
-	systemMonth *prometheus.GaugeVec
-	systemStatus *prometheus.GaugeVec
+	systemToday     *prometheus.GaugeVec
+	systemMonth     *prometheus.GaugeVec
+	systemYear      *prometheus.GaugeVec
+	systemLifetime  *prometheus.GaugeVec
+	systemStatus    *prometheus.GaugeVec
 	scrapeOK    prometheus.Gauge
 	apiCalls    prometheus.Counter
 	lastScrape  prometheus.Gauge
@@ -78,6 +82,14 @@ func New(cfg config.Config, panels layout.File) (*Exporter, error) {
 			Name: "apsystems_system_energy_month_kwh",
 			Help: "Whole-system cumulative energy this month in kWh",
 		}, []string{"sid"}),
+		systemYear: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "apsystems_system_energy_year_kwh",
+			Help: "Whole-system cumulative energy this calendar year in kWh",
+		}, []string{"sid"}),
+		systemLifetime: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "apsystems_system_energy_lifetime_kwh",
+			Help: "Whole-system cumulative energy since install in kWh",
+		}, []string{"sid"}),
 		systemStatus: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "apsystems_system_status",
 			Help: "ECU status light: 1=green 2=yellow 3=red 4=grey",
@@ -97,7 +109,7 @@ func New(cfg config.Config, panels layout.File) (*Exporter, error) {
 	}
 	e.client = api.New(cfg.APIBase, cfg.AppID, cfg.AppSecret, e.apiCalls.Inc)
 	prometheus.MustRegister(
-		e.panelEnergy, e.panelPower, e.systemToday, e.systemMonth, e.systemStatus,
+		e.panelEnergy, e.panelPower, e.systemToday, e.systemMonth, e.systemYear, e.systemLifetime, e.systemStatus,
 		e.scrapeOK, e.apiCalls, e.lastScrape,
 		prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Name: "apsystems_exporter_info",
@@ -220,6 +232,8 @@ func (e *Exporter) fetchSummary() error {
 	}
 	e.systemToday.WithLabelValues(e.cfg.SystemID).Set(parseFloat(summary.Today))
 	e.systemMonth.WithLabelValues(e.cfg.SystemID).Set(parseFloat(summary.Month))
+	e.systemYear.WithLabelValues(e.cfg.SystemID).Set(parseFloat(summary.Year))
+	e.systemLifetime.WithLabelValues(e.cfg.SystemID).Set(parseFloat(summary.Lifetime))
 
 	detailsPath := fmt.Sprintf("/user/api/v2/systems/details/%s", e.cfg.SystemID)
 	detailsResp, err := e.client.Get(detailsPath, nil)
@@ -231,7 +245,13 @@ func (e *Exporter) fetchSummary() error {
 		return fmt.Errorf("decode details: %w", err)
 	}
 	e.systemStatus.WithLabelValues(e.cfg.SystemID).Set(float64(details.Light))
-	slog.Info("summary fetched", "today_kwh", summary.Today, "status", details.Light)
+	slog.Info("summary fetched",
+		"today_kwh", summary.Today,
+		"month_kwh", summary.Month,
+		"year_kwh", summary.Year,
+		"lifetime_kwh", summary.Lifetime,
+		"status", details.Light,
+	)
 	return nil
 }
 

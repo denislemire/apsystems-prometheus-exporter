@@ -21,6 +21,8 @@ Designed as a **standalone open-source project** — copy or clone this director
 | `apsystems_panel_power_watts` | uid, channel, array, row, col | Latest power sample (W) per panel |
 | `apsystems_system_energy_today_kwh` | sid | System total kWh today |
 | `apsystems_system_energy_month_kwh` | sid | System total kWh this month |
+| `apsystems_system_energy_year_kwh` | sid | System total kWh this calendar year |
+| `apsystems_system_energy_lifetime_kwh` | sid | System total kWh since install |
 | `apsystems_system_status` | sid | 1=green 2=yellow 3=red 4=grey |
 | `apsystems_exporter_scrape_success` | — | 1 on successful scrape |
 | `apsystems_exporter_api_calls_total` | — | API call counter |

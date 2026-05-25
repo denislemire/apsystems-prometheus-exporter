@@ -19,6 +19,8 @@ Metrics exported:
   - apsystems_panel_power_watts
   - apsystems_system_energy_today_kwh
   - apsystems_system_energy_month_kwh
+  - apsystems_system_energy_year_kwh
+  - apsystems_system_energy_lifetime_kwh
   - apsystems_system_status
 
 See https://github.com/denislemire/apsystems-prometheus-exporter for full documentation.
