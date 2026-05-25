@@ -155,7 +155,7 @@ func (e *Exporter) Run(ctx context.Context) error {
 		"panels", len(e.layout.Panels),
 	)
 
-	if err := e.Scrape(ctx); err != nil {
+	if err := e.scrape(true); err != nil {
 		slog.Warn("initial scrape failed", "err", err)
 	}
 
@@ -166,7 +166,7 @@ func (e *Exporter) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if err := e.Scrape(ctx); err != nil {
+			if err := e.scrape(false); err != nil {
 				slog.Error("scrape failed", "err", err)
 				e.scrapeOK.Set(0)
 			}
@@ -175,7 +175,11 @@ func (e *Exporter) Run(ctx context.Context) error {
 }
 
 func (e *Exporter) Scrape(_ context.Context) error {
-	if !e.inSolarWindow() {
+	return e.scrape(false)
+}
+
+func (e *Exporter) scrape(bootstrap bool) error {
+	if !bootstrap && !e.inSolarWindow() {
 		slog.Debug("outside solar window, skipping API calls",
 			"start", e.cfg.SolarStartHour, "end", e.cfg.SolarEndHour)
 		e.scrapeOK.Set(1)
@@ -208,7 +212,7 @@ func (e *Exporter) Scrape(_ context.Context) error {
 	}
 	e.setBatchPower(power)
 
-	if e.scrapeCount%e.cfg.SummaryEveryN == 0 {
+	if bootstrap || e.scrapeCount%e.cfg.SummaryEveryN == 0 {
 		if err := e.fetchSummary(); err != nil {
 			return err
 		}
