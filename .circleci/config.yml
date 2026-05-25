@@ -1,0 +1,53 @@
+# CircleCI Server (circle.ehws.generic.business)
+# Builds and pushes ghcr.io/denislemire/apsystems-prometheus-exporter on version tags (v*).
+#
+# Project env (Context: ghcr):
+#   GHCR_USERNAME — GitHub username (e.g. denislemire)
+#   GHCR_TOKEN    — PAT with read:packages + write:packages (or classic repo + packages scope)
+version: 2.1
+
+jobs:
+  release-image:
+    docker:
+      - image: cimg/base:2024.11
+    resource_class: medium
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Log in to GHCR
+          command: |
+            set -euo pipefail
+            : "${GHCR_USERNAME:?Set GHCR_USERNAME in the ghcr context}"
+            : "${GHCR_TOKEN:?Set GHCR_TOKEN in the ghcr context}"
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+      - run:
+          name: Build and push release image
+          command: |
+            set -euo pipefail
+            TAG="${CIRCLE_TAG:?release job requires a git tag}"
+            VERSION="${TAG#v}"
+            MAJOR_MINOR="$(echo "${VERSION}" | cut -d. -f1,2)"
+            IMAGE="ghcr.io/denislemire/apsystems-prometheus-exporter"
+
+            docker build \
+              --build-arg "VERSION=${TAG}" \
+              -t "${IMAGE}:${VERSION}" \
+              -t "${IMAGE}:${MAJOR_MINOR}" \
+              -t "${IMAGE}:sha-${CIRCLE_SHA1}" \
+              .
+
+            docker push "${IMAGE}:${VERSION}"
+            docker push "${IMAGE}:${MAJOR_MINOR}"
+            docker push "${IMAGE}:sha-${CIRCLE_SHA1}"
+
+workflows:
+  release:
+    jobs:
+      - release-image:
+          context: ghcr
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/

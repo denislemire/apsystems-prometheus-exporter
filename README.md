@@ -146,7 +146,9 @@ git tag v0.1.0
 git push -u origin main --tags
 ```
 
-GitHub Actions builds and pushes the container image on tag.
+CircleCI (on [circle.ehws.generic.business](https://circle.ehws.generic.business)) builds and pushes the container image when you push a `v*` tag.
+
+Add the project in CircleCI and attach the **`ghcr`** context with `GHCR_USERNAME` and `GHCR_TOKEN` (GitHub PAT with `write:packages`).
 
 ## License
 
