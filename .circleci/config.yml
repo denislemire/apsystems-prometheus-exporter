@@ -1,9 +1,9 @@
-# CircleCI Server (circle.ehws.generic.business)
+# CircleCI Server (OAuth) — circle.ehws.generic.business
 # Builds and pushes ghcr.io/denislemire/apsystems-prometheus-exporter on version tags (v*).
 #
-# Project env (Context: ghcr):
-#   GHCR_USERNAME — GitHub username (e.g. denislemire)
-#   GHCR_TOKEN    — PAT with read:packages + write:packages (or classic repo + packages scope)
+# Context: apsystems-github-publish
+#   GITHUB_USERNAME — GitHub account for GHCR login
+#   GITHUB_TOKEN    — PAT with repo + write:packages
 version: 2.1
 
 jobs:
@@ -18,9 +18,9 @@ jobs:
           name: Log in to GHCR
           command: |
             set -euo pipefail
-            : "${GHCR_USERNAME:?Set GHCR_USERNAME in the ghcr context}"
-            : "${GHCR_TOKEN:?Set GHCR_TOKEN in the ghcr context}"
-            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+            : "${GITHUB_USERNAME:?Set GITHUB_USERNAME in the apsystems-github-publish context}"
+            : "${GITHUB_TOKEN:?Set GITHUB_TOKEN in the apsystems-github-publish context}"
+            echo "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_USERNAME}" --password-stdin
       - run:
           name: Build and push release image
           command: |
@@ -45,7 +45,7 @@ workflows:
   release:
     jobs:
       - release-image:
-          context: ghcr
+          context: apsystems-github-publish
           filters:
             tags:
               only: /^v.*/
