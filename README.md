@@ -146,9 +146,7 @@ git tag v0.1.0
 git push -u origin main --tags
 ```
 
-CircleCI (on [circle.ehws.generic.business](https://circle.ehws.generic.business)) builds and pushes the container image when you push a `v*` tag.
-
-The **`apsystems-github-publish`** context supplies `GITHUB_USERNAME` and `GITHUB_TOKEN` for GHCR login.
+GitHub Actions builds and pushes the container image on tag (`v*`).
 
 ## License
 
