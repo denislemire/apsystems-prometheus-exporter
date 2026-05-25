@@ -1,0 +1,17 @@
+apiVersion: v2
+name: apsystems-exporter
+description: Prometheus exporter for APSystems OpenAPI per-panel solar metrics
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - prometheus
+  - solar
+  - apsystems
+  - photovoltaics
+home: https://github.com/denislemire/apsystems-prometheus-exporter
+sources:
+  - https://github.com/denislemire/apsystems-prometheus-exporter
+maintainers:
+  - name: Denis Lemire
+    url: https://github.com/denislemire

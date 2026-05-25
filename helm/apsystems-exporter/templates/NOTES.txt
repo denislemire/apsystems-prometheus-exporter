@@ -1,0 +1,24 @@
+1. Get credentials from APSystems EMA portal (Settings → OpenAPI Service).
+
+2. Install the chart:
+
+   helm install apsystems ./helm/apsystems-exporter \
+     --set apsystems.sid=YOUR_SID \
+     --set apsystems.ecuId=YOUR_ECU_ID \
+     --set apsystems.createSecret=true \
+     --set apsystems.appId=YOUR_APP_ID \
+     --set apsystems.appSecret=YOUR_APP_SECRET
+
+3. Verify metrics:
+
+   kubectl port-forward svc/{{ include "apsystems-exporter.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+   curl -s localhost:{{ .Values.service.port }}/metrics | grep apsystems_panel
+
+Metrics exported:
+  - apsystems_panel_energy_today_kwh
+  - apsystems_panel_power_watts
+  - apsystems_system_energy_today_kwh
+  - apsystems_system_energy_month_kwh
+  - apsystems_system_status
+
+See https://github.com/denislemire/apsystems-prometheus-exporter for full documentation.

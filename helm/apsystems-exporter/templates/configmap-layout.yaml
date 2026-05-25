@@ -1,0 +1,13 @@
+{{- if and .Values.panelsLayout.enabled (not .Values.panelsLayout.existingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "apsystems-exporter.fullname" . }}-layout
+  labels:
+    {{- include "apsystems-exporter.labels" . | nindent 4 }}
+data:
+  panels-layout.json: |
+    {
+      "panels": {{ .Values.panelsLayout.panels | toJson }}
+    }
+{{- end }}

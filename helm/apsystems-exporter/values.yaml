@@ -1,0 +1,111 @@
+# Default values for apsystems-exporter.
+# See README for credential and panel layout setup.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/denislemire/apsystems-prometheus-exporter
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 9921
+  annotations: {}
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# APSystems OpenAPI credentials and system identifiers.
+apsystems:
+  apiBase: https://api.apsystemsema.com:9282
+  sid: ""
+  ecuId: ""
+  # Use an existing Secret with keys app-id and app-secret (recommended).
+  existingSecret: ""
+  # When existingSecret is empty and createSecret is true, inline values below
+  # are stored in a chart-managed Secret (not recommended for production).
+  createSecret: false
+  appId: ""
+  appSecret: ""
+
+scrape:
+  interval: 2h
+  timezone: UTC
+  solarStartHour: 6
+  solarEndHour: 22
+  summaryEveryN: 6
+
+# Optional panel layout for Grafana grid labels (array/row/col).
+# Keys are "uid-channel" (e.g. "804000060846-1").
+panelsLayout:
+  enabled: true
+  # Mount an existing ConfigMap instead of rendering panelsLayout.panels below.
+  existingConfigMap: ""
+  panels: {}
+  # Example:
+  # panels:
+  #   "804000060846-1":
+  #     uid: "804000060846"
+  #     channel: 1
+  #     array: west
+  #     row: 0
+  #     col: 0
+
+serviceMonitor:
+  enabled: false
+  interval: 60s
+  scrapeTimeout: 30s
+  additionalLabels: {}
+  # release: monitoring
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 15
+
+extraEnv: []
+extraVolumeMounts: []
+extraVolumes: []

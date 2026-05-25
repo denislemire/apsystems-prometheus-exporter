@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "apsystems-exporter.fullname" . }}
+  labels:
+    {{- include "apsystems-exporter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "apsystems-exporter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "apsystems-exporter.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "apsystems-exporter.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: exporter
+          image: {{ include "apsystems-exporter.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: APS_API_BASE
+              value: {{ .Values.apsystems.apiBase | quote }}
+            - name: APS_SID
+              value: {{ required "apsystems.sid is required" .Values.apsystems.sid | quote }}
+            - name: APS_ECU_ID
+              value: {{ required "apsystems.ecuId is required" .Values.apsystems.ecuId | quote }}
+            - name: APS_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "apsystems-exporter.secretName" . }}
+                  key: app-id
+            - name: APS_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "apsystems-exporter.secretName" . }}
+                  key: app-secret
+            - name: SCRAPE_INTERVAL
+              value: {{ .Values.scrape.interval | quote }}
+            - name: TZ
+              value: {{ .Values.scrape.timezone | quote }}
+            - name: SOLAR_START_HOUR
+              value: {{ .Values.scrape.solarStartHour | quote }}
+            - name: SOLAR_END_HOUR
+              value: {{ .Values.scrape.solarEndHour | quote }}
+            - name: SUMMARY_EVERY_N
+              value: {{ .Values.scrape.summaryEveryN | quote }}
+            - name: EXPORTER_LISTEN
+              value: {{ printf ":%v" .Values.service.port | quote }}
+            {{- $layoutCM := include "apsystems-exporter.layoutConfigMapName" . }}
+            {{- if $layoutCM }}
+            - name: APS_PANELS_LAYOUT
+              value: /etc/apsystems/panels-layout.json
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- $layoutCM := include "apsystems-exporter.layoutConfigMapName" . }}
+          {{- if or $layoutCM .Values.extraVolumeMounts }}
+          volumeMounts:
+            {{- if $layoutCM }}
+            - name: panels-layout
+              mountPath: /etc/apsystems
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- $layoutCM := include "apsystems-exporter.layoutConfigMapName" . }}
+      {{- if or $layoutCM .Values.extraVolumes }}
+      volumes:
+        {{- if $layoutCM }}
+        - name: panels-layout
+          configMap:
+            name: {{ $layoutCM }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
