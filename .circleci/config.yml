@@ -21,6 +21,14 @@ jobs:
       - onepassword/install-cli:
           # Orb default is 2.7.1; service accounts need CLI >= 2.18.0.
           version: "2.34.1"
+          path: /usr/local/bin
+      - run:
+          name: Persist op CLI on PATH
+          command: |
+            set -euo pipefail
+            command -v op
+            op --version
+            echo 'export PATH="/usr/local/bin:$PATH"' >> "$BASH_ENV"
       - onepassword/exec:
           command: |
             set -euo pipefail
