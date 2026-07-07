@@ -58,7 +58,10 @@ docker run --rm -p 9921:9921 \
   apsystems-exporter
 ```
 
-Images are published to `ghcr.io/denislemire/apsystems-prometheus-exporter`.
+Images are published to:
+
+- **GitHub Container Registry:** `ghcr.io/denislemire/apsystems-prometheus-exporter` (GitHub Actions on `v*` tags)
+- **EhWS internal registry:** `registry.ehws.generic.business/apsystems-exporter` (CircleCI Server, KubeVirt `linux.medium` machine executor)
 
 ## Helm
 
@@ -146,7 +149,11 @@ git tag v0.1.0
 git push -u origin main --tags
 ```
 
-GitHub Actions builds and pushes the container image on tag (`v*`).
+GitHub Actions builds and pushes to GHCR on tag (`v*`). EhWS CircleCI builds and pushes to Zot on the same tags (and branch pushes for CI validation).
+
+### EhWS CircleCI (Zot)
+
+Requires a CircleCI project on `circle.ehws.generic.business` with project env var `OP_SERVICE_ACCOUNT_TOKEN` (1Password service account — not committed). Registry credentials are loaded at runtime via the [1Password Secrets orb](https://circleci.com/developer/orbs/orb/onepassword/secrets); see `ehws-infra` → `docs/CIRCLECI_1PASSWORD_SECRETS.md` for setup.
 
 ## License
 

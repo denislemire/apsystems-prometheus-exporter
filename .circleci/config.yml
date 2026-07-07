@@ -1,0 +1,81 @@
+# CircleCI Server (EhWS) — build and push to internal Zot registry.
+#
+# Machine executor: KubeVirt linux.medium (ubuntu-2404) — docker runs on the VM.
+# Registry auth: 1Password Secrets Automation (see ehws-infra docs/CIRCLECI_1PASSWORD_SECRETS.md).
+#
+# Project env (CircleCI UI, not in Git): OP_SERVICE_ACCOUNT_TOKEN
+version: 2.1
+
+orbs:
+  onepassword: onepassword/secrets@2
+
+jobs:
+  build-push-image:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    steps:
+      - checkout
+      - onepassword/install-cli
+      - onepassword/exec:
+          secrets:
+            ZOT_USERNAME: op://Generic/Registry EHWS - Zot htpasswd/username
+            ZOT_PASSWORD: op://Generic/Registry EHWS - Zot htpasswd/password
+          command: |
+            set -euo pipefail
+
+            REGISTRY="registry.ehws.generic.business"
+            IMAGE="${REGISTRY}/apsystems-exporter"
+
+            printf '%s' "${ZOT_PASSWORD}" \
+              | docker login "${REGISTRY}" -u "${ZOT_USERNAME}" --password-stdin
+
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              TAG="${CIRCLE_TAG}"
+              VERSION="${TAG#v}"
+              MAJOR_MINOR="$(echo "${VERSION}" | cut -d. -f1,2)"
+              TAGS=(
+                "${IMAGE}:${TAG}"
+                "${IMAGE}:${VERSION}"
+                "${IMAGE}:${MAJOR_MINOR}"
+                "${IMAGE}:sha-${CIRCLE_SHA1:0:7}"
+              )
+              BUILD_VERSION="${TAG}"
+            else
+              TAGS=(
+                "${IMAGE}:sha-${CIRCLE_SHA1:0:7}"
+                "${IMAGE}:branch-${CIRCLE_BRANCH//\//-}"
+              )
+              BUILD_VERSION="dev-${CIRCLE_SHA1:0:7}"
+            fi
+
+            build_args=(--build-arg "VERSION=${BUILD_VERSION}")
+            for ref in "${TAGS[@]}"; do
+              build_args+=(-t "${ref}")
+            done
+            docker build "${build_args[@]}" .
+
+            for ref in "${TAGS[@]}"; do
+              docker push "${ref}"
+            done
+
+workflows:
+  build:
+    jobs:
+      - build-push-image:
+          filters:
+            branches:
+              only:
+                - feat/circleci-kubevirt-zot-build
+                - main
+            tags:
+              ignore: /.*/
+
+  release:
+    jobs:
+      - build-push-image:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
