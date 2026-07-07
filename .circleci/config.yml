@@ -6,7 +6,7 @@
 version: 2.1
 
 orbs:
-  onepassword: onepassword/secrets@2
+  onepassword: onepassword/secrets@1
 
 jobs:
   build-push-image:
