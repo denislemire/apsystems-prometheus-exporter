@@ -1,7 +1,8 @@
 # CircleCI Server (EhWS) — build and push to internal Zot registry.
 #
 # Machine executor: KubeVirt linux.medium (ubuntu-2404) — docker runs on the VM.
-# Registry auth: onepassword/secrets orb + ehws-1password-secrets context.
+# Registry auth: onepassword/secrets orb + ehws-1password-secrets context
+# (OP_SERVICE_ACCOUNT_TOKEN). Zot creds resolve via job environment op:// refs.
 # See ehws-infra docs/CIRCLECI_1PASSWORD_SECRETS.md.
 version: 2.1
 
@@ -35,7 +36,10 @@ jobs:
             command -v op
             op --version
             echo 'export PATH="/usr/local/bin:$PATH"' >> "$BASH_ENV"
-      - onepassword/exec:
+      - run:
+          name: Build and push image to Zot
+          no_output_timeout: 30m
+          shell: op run -- /bin/bash
           command: |
             set -euo pipefail
 
@@ -68,7 +72,7 @@ jobs:
             for ref in "${TAGS[@]}"; do
               build_args+=(-t "${ref}")
             done
-            docker build "${build_args[@]}" .
+            docker build --progress=plain "${build_args[@]}" .
 
             for ref in "${TAGS[@]}"; do
               docker push "${ref}"
