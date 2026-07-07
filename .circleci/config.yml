@@ -1,13 +1,11 @@
 # CircleCI Server (EhWS) — build and push to internal Zot registry.
 #
 # Machine executor: KubeVirt linux.medium (ubuntu-2404) — docker runs on the VM.
-# Registry auth: 1Password Secrets Automation (see ehws-infra docs/CIRCLECI_1PASSWORD_SECRETS.md).
+# Registry auth: 1Password CLI + service account (see ehws-infra docs/CIRCLECI_1PASSWORD_SECRETS.md).
+# Note: onepassword/secrets orb is unavailable on self-hosted orb registry; install op directly.
 #
 # Project env (CircleCI UI, not in Git): OP_SERVICE_ACCOUNT_TOKEN
 version: 2.1
-
-orbs:
-  onepassword: onepassword/secrets@2
 
 jobs:
   build-push-image:
@@ -16,16 +14,23 @@ jobs:
     resource_class: medium
     steps:
       - checkout
-      - onepassword/install-cli
-      - onepassword/exec:
-          secrets:
-            ZOT_USERNAME: op://Generic/Registry EHWS - Zot htpasswd/username
-            ZOT_PASSWORD: op://Generic/Registry EHWS - Zot htpasswd/password
+      - run:
+          name: Install 1Password CLI
           command: |
             set -euo pipefail
+            curl -sSLo /tmp/op.deb https://downloads.1password.com/linux/debian/amd64/stable/1password-cli-amd64-latest.deb
+            sudo dpkg -i /tmp/op.deb
+            op --version
+      - run:
+          name: Build and push image to Zot
+          command: |
+            set -euo pipefail
+            : "${OP_SERVICE_ACCOUNT_TOKEN:?Set OP_SERVICE_ACCOUNT_TOKEN on the CircleCI project}"
 
             REGISTRY="registry.ehws.generic.business"
             IMAGE="${REGISTRY}/apsystems-exporter"
+            ZOT_USERNAME="$(op read 'op://EhWS Secrets/Registry EHWS - Zot htpasswd/username')"
+            ZOT_PASSWORD="$(op read 'op://EhWS Secrets/Registry EHWS - Zot htpasswd/password')"
 
             printf '%s' "${ZOT_PASSWORD}" \
               | docker login "${REGISTRY}" -u "${ZOT_USERNAME}" --password-stdin

@@ -153,7 +153,7 @@ GitHub Actions builds and pushes to GHCR on tag (`v*`). EhWS CircleCI builds and
 
 ### EhWS CircleCI (Zot)
 
-Requires a CircleCI project on `circle.ehws.generic.business` with project env var `OP_SERVICE_ACCOUNT_TOKEN` (1Password service account — not committed). Registry credentials are loaded at runtime via the [1Password Secrets orb](https://circleci.com/developer/orbs/orb/onepassword/secrets); see `ehws-infra` → `docs/CIRCLECI_1PASSWORD_SECRETS.md` for setup.
+Requires a CircleCI project on `circle.ehws.generic.business` with project env var `OP_SERVICE_ACCOUNT_TOKEN` (1Password service account — not committed). The job installs 1Password CLI and reads Zot credentials via `op://` references; see `ehws-infra` → `docs/CIRCLECI_1PASSWORD_SECRETS.md` for setup.
 
 ## License
 
