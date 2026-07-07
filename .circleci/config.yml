@@ -18,12 +18,18 @@ jobs:
       ZOT_PASSWORD: op://EhWS Secrets/Registry EHWS - Zot htpasswd/password
     steps:
       - checkout
+      - run:
+          name: Install unzip (required by onepassword/install-cli)
+          command: |
+            set -euo pipefail
+            sudo apt-get update
+            sudo apt-get install -y unzip
       - onepassword/install-cli:
           # Orb default is 2.7.1; service accounts need CLI >= 2.18.0.
           version: "2.34.1"
           path: /usr/local/bin
       - run:
-          name: Persist op CLI on PATH
+          name: Verify op CLI
           command: |
             set -euo pipefail
             command -v op
