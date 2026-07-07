@@ -13,15 +13,15 @@ jobs:
     machine:
       image: ubuntu-2404:current
     resource_class: medium
+    environment:
+      ZOT_USERNAME: op://EhWS Secrets/Registry EHWS - Zot htpasswd/username
+      ZOT_PASSWORD: op://EhWS Secrets/Registry EHWS - Zot htpasswd/password
     steps:
       - checkout
       - onepassword/install-cli:
           # Orb default is 2.7.1; service accounts need CLI >= 2.18.0.
           version: "2.34.1"
       - onepassword/exec:
-          secrets:
-            ZOT_USERNAME: op://EhWS Secrets/Registry EHWS - Zot htpasswd/username
-            ZOT_PASSWORD: op://EhWS Secrets/Registry EHWS - Zot htpasswd/password
           command: |
             set -euo pipefail
 
