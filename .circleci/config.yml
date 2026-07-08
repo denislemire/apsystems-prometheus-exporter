@@ -24,9 +24,8 @@ jobs:
           command: |
             set -euo pipefail
             sudo apt-get update
-            sudo apt-get install -y unzip
+            sudo apt-get install -y unzip curl dnsutils
       - onepassword/install-cli:
-          # Orb default is 2.7.1; service accounts need CLI >= 2.18.0.
           version: "2.34.1"
           path: /usr/local/bin
       - run:
@@ -37,17 +36,53 @@ jobs:
             op --version
             echo 'export PATH="/usr/local/bin:$PATH"' >> "$BASH_ENV"
       - run:
-          name: Build and push image to Zot
-          no_output_timeout: 30m
+          name: Debug DNS and registry reachability
+          command: |
+            set -euo pipefail
+            REGISTRY="registry.ehws.generic.business"
+
+            echo "=== resolver ==="
+            cat /etc/resolv.conf
+
+            echo "=== split-horizon hostnames (expect LAN VIPs, not public/inferno) ==="
+            for host in \
+              registry.ehws.generic.business \
+              app.circle.ehws.generic.business \
+              circle.ehws.generic.business \
+              s3-seaweedfs.ehws.generic.business; do
+              echo "-- ${host}"
+              getent hosts "${host}" || true
+              dig +short "${host}" || true
+            done
+
+            echo "=== TCP/TLS probe to registry (no auth) ==="
+            REGISTRY_IP="$(getent hosts "${REGISTRY}" | awk '{print $1; exit}')"
+            echo "registry resolves to: ${REGISTRY_IP:-<unresolved>}"
+            curl -sv --connect-timeout 10 --max-time 20 "https://${REGISTRY}/v2/" 2>&1 | tail -20 || true
+
+            if [ -n "${REGISTRY_IP:-}" ]; then
+              echo "=== direct IP probe (bypasses DNS/SNI quirks) ==="
+              curl -sv --connect-timeout 10 --max-time 20 \
+                --resolve "${REGISTRY}:443:${REGISTRY_IP}" \
+                "https://${REGISTRY}/v2/" 2>&1 | tail -20 || true
+            fi
+      - run:
+          name: Docker login to Zot
+          no_output_timeout: 10m
           shell: op run -- /bin/bash
           command: |
             set -euo pipefail
-
+            REGISTRY="registry.ehws.generic.business"
+            echo "=== docker login ${REGISTRY} ==="
+            time printf '%s' "${ZOT_PASSWORD}" \
+              | docker login "${REGISTRY}" -u "${ZOT_USERNAME}" --password-stdin
+            echo "docker login succeeded"
+      - run:
+          name: Compute image tags
+          command: |
+            set -euo pipefail
             REGISTRY="registry.ehws.generic.business"
             IMAGE="${REGISTRY}/apsystems-exporter"
-
-            printf '%s' "${ZOT_PASSWORD}" \
-              | docker login "${REGISTRY}" -u "${ZOT_USERNAME}" --password-stdin
 
             if [ -n "${CIRCLE_TAG:-}" ]; then
               TAG="${CIRCLE_TAG}"
@@ -68,15 +103,71 @@ jobs:
               BUILD_VERSION="dev-${CIRCLE_SHA1:0:7}"
             fi
 
-            build_args=(--build-arg "VERSION=${BUILD_VERSION}")
-            for ref in "${TAGS[@]}"; do
-              build_args+=(-t "${ref}")
-            done
-            docker build --progress=plain "${build_args[@]}" .
+            printf '%s\n' "${TAGS[@]}" > /tmp/image-tags.txt
+            echo "BUILD_VERSION=${BUILD_VERSION}" >> "$BASH_ENV"
+            echo "=== tags to build/push ==="
+            cat /tmp/image-tags.txt
+      - run:
+          name: Docker build image
+          no_output_timeout: 30m
+          command: |
+            set -euo pipefail
+            source "$BASH_ENV"
 
-            for ref in "${TAGS[@]}"; do
-              docker push "${ref}"
-            done
+            build_args=(--progress=plain --build-arg "VERSION=${BUILD_VERSION}")
+            while IFS= read -r ref; do
+              build_args+=(-t "${ref}")
+            done < /tmp/image-tags.txt
+
+            echo "=== docker build (tags from /tmp/image-tags.txt) ==="
+            time docker build "${build_args[@]}" .
+            echo "=== built images ==="
+            docker images --format 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}' \
+              | grep -E 'apsystems-exporter|REPOSITORY' || docker images | head -20
+      - run:
+          name: Debug pre-push state
+          command: |
+            set -euo pipefail
+            REGISTRY="registry.ehws.generic.business"
+            echo "=== docker info (registry mirrors) ==="
+            docker info 2>/dev/null | grep -A2 -i registry || true
+            echo "=== auth config (redacted) ==="
+            if [ -f "${HOME}/.docker/config.json" ]; then
+              python3 - <<'PY'
+            import json, pathlib
+            p = pathlib.Path.home() / ".docker" / "config.json"
+            data = json.loads(p.read_text())
+            auths = data.get("auths", {})
+            for host, meta in auths.items():
+                print(f"auth host: {host}")
+                if isinstance(meta, dict) and "auth" in meta:
+                    print(f"  has auth blob: yes (len={len(meta['auth'])})")
+            PY
+            else
+              echo "no ~/.docker/config.json"
+            fi
+            echo "=== registry catalog probe (authenticated) ==="
+            curl -sS --connect-timeout 10 --max-time 20 -o /dev/null -w \
+              "HTTP %{http_code} in %{time_total}s\n" \
+              "https://${REGISTRY}/v2/" || true
+      - run:
+          name: Docker push images to Zot
+          no_output_timeout: 30m
+          shell: op run -- /bin/bash
+          command: |
+            set -euo pipefail
+            REGISTRY="registry.ehws.generic.business"
+
+            printf '%s' "${ZOT_PASSWORD}" \
+              | docker login "${REGISTRY}" -u "${ZOT_USERNAME}" --password-stdin
+
+            echo "=== pushing tags one at a time ==="
+            while IFS= read -r ref; do
+              echo ">>> PUSH START ${ref} @ $(date -Is)"
+              time docker push --progress=plain "${ref}"
+              echo ">>> PUSH OK   ${ref} @ $(date -Is)"
+            done < /tmp/image-tags.txt
+            echo "=== all pushes complete ==="
 
 workflows:
   build:
