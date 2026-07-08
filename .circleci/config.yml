@@ -133,16 +133,9 @@ jobs:
             docker info 2>/dev/null | grep -A2 -i registry || true
             echo "=== auth config (redacted) ==="
             if [ -f "${HOME}/.docker/config.json" ]; then
-              python3 - <<'PY'
-            import json, pathlib
-            p = pathlib.Path.home() / ".docker" / "config.json"
-            data = json.loads(p.read_text())
-            auths = data.get("auths", {})
-            for host, meta in auths.items():
-                print(f"auth host: {host}")
-                if isinstance(meta, dict) and "auth" in meta:
-                    print(f"  has auth blob: yes (len={len(meta['auth'])})")
-            PY
+              jq -r '.auths | keys[] | "auth host: \(.)"' "${HOME}/.docker/config.json" 2>/dev/null || true
+              jq -r '.auths | to_entries[] | select(.value.auth != null) | "  has auth blob: yes (len=\(.value.auth | length))"' \
+                "${HOME}/.docker/config.json" 2>/dev/null || true
             else
               echo "no ~/.docker/config.json"
             fi
