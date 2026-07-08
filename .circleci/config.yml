@@ -157,7 +157,7 @@ jobs:
             echo "=== pushing tags one at a time ==="
             while IFS= read -r ref; do
               echo ">>> PUSH START ${ref} @ $(date -Is)"
-              time docker push --progress=plain "${ref}"
+              time docker push "${ref}"
               echo ">>> PUSH OK   ${ref} @ $(date -Is)"
             done < /tmp/image-tags.txt
             echo "=== all pushes complete ==="
